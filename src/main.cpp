@@ -1,28 +1,8 @@
 #include <Arduino.h>
-// #include <esptinyusb.h>
-// #include "usb_host.hpp"
-extern "C"
-{
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "esp_system.h"
-#include "esp_heap_caps.h"
-#include "esp_log.h"
-#include "esp_intr_alloc.h"
-#include "host/usbh.h"
-#include "osal/osal.h"
-#include "osal/osal_freertos.h"
-// #include "osal/osal_rtthread.h"
-}
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <inttypes.h>
-#include <esp_wifi.h>
-#include <WebServer_ESP32_SC_W5500.h> //https://github.com/khoih-prog/ESP32_W5500_Manager
+
+
+// #include <WebServer_ESP32_SC_W5500.h> //https://github.com/khoih-prog/ESP32_W5500_Manager
 
 #include "class_driver.hpp"
 
