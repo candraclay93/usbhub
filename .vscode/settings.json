@@ -1,0 +1,6 @@
+{
+  "files.associations": {
+    "usbh_classdriver.h": "c",
+    "dcd_esp32sx.hpp": "c"
+  }
+}

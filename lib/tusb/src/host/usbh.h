@@ -36,6 +36,8 @@
 #include "common/tusb_common.h"
 #include "common/tusb_private.h"
 
+#define CFG_TUH_DEVICE_MAX          (CFG_TUH_HUB ? 4 : 1) // hub typically has 4 ports
+
 #ifndef CFG_TUH_TASK_QUEUE_SZ
 #define CFG_TUH_TASK_QUEUE_SZ   16
 #endif

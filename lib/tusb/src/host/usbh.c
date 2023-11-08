@@ -459,7 +459,7 @@ bool tuh_control_xfer (tuh_xfer_t* xfer)
 
   if (xfer->complete_cb){
     dcd_edpt_xfer(rhport, xfer->ep_addr, (uint8_t *) &_ctrl_xfer.request, sizeof(tusb_control_request_t));
-    transmit_packet(xfer, xfer->ep_addr);
+    transmit_packet(xfer, xfer->ep_addr, get_free_fifo());
   }
     
   else
