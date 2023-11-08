@@ -1,0 +1,211 @@
+#include <esp_wifi.h>
+#include <WebServer_ESP32_SC_W5500.h> //https://github.com/khoih-prog/ESP32_W5500_Manager
+void setup_t()
+{
+    log_v("connected. Local IP: ");
+    uint8_t mac[6] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0x01};
+    ETH.begin(MISO_GPIO, MOSI_GPIO, SCK_GPIO, CS_GPIO, INT_GPIO, SPI_CLOCK_MHZ, ETH_SPI_HOST, mac);
+    ETH.setHostname("astaDispenser");
+    while (!ESP32_W5500_eth_connected)
+        delay(100);
+    if (ESP32_W5500_isConnected())
+    {
+        log_v("connected. Local IP: ");
+        log_v("%s", ETH.localIP());
+    }
+}
+
+#include <FS.h>
+#include <SD.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <Arduino.h>
+
+#include "test.hpp"
+#include "Audio.h"
+#include "WiFiMulti.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+#include "usb/usb_host.h"
+#include "usb_host.hpp"
+#include "cdcusb.h"
+#include "hidkeyboard.h"
+
+extern "C"
+{
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+}
+
+#define I2S_DOUT 9
+#define I2S_BCLK 6
+#define I2S_LRC 8
+
+Audio audio;
+WiFiMulti wifiMulti;
+File myFile;
+USBhost host;
+CDCusb CDCUSBSerial;
+HIDkeyboard keyboard;
+
+void echo_all(char c)
+{
+    CDCUSBSerial.write(c);
+    log_v("%c",c);
+}
+
+class Device: public USBCallbacks {
+    void onMount() { Serial.println("Mount"); }
+    void onUnmount() { Serial.println("Unmount"); }
+    void onSuspend(bool remote_wakeup_en) { Serial.println("Suspend"); }
+    void onResume() { Serial.println("Resume"); }
+};
+
+class MyCDCCallbacks : public CDCCallbacks {
+    void onCodingChange(cdc_line_coding_t const* p_line_coding)
+    {
+        int bitrate = CDCUSBSerial.getBitrate();
+        log_v("new bitrate: %d\n", bitrate);
+    }
+
+    bool onConnect(bool dtr, bool rts)
+    {
+        log_v("connection state changed, dtr: %d, rts: %d\n", dtr, rts);
+        return true;  // allow to persist reset, when Arduino IDE is trying to enter bootloader mode
+    }
+
+    void onData()
+    {
+        int len = CDCUSBSerial.available();
+        log_v("\nnew data, len %d\n", len);
+        uint8_t buf[len] = {};
+        CDCUSBSerial.read(buf, len);
+        Serial.write(buf, len);
+    }
+};
+
+class MyHIDCallbacks : public HIDCallbacks
+{
+    void onData(uint8_t report_id, hid_report_type_t report_type, uint8_t const *buffer, uint16_t bufsize)
+    {
+        log_v("ID: %d, type: %d, size: %d\n", report_id, (int)report_type, bufsize);
+        for (size_t i = 0; i < bufsize; i++)
+        {
+            log_v("%d\n", buffer[i]);
+        }
+    }
+};
+
+void outerLoop(void *param)
+{
+    while (1)
+    {
+        audio.loop();
+        while (CDCUSBSerial.available())
+            echo_all(CDCUSBSerial.read());
+        vTaskDelay(1);
+    }
+}
+
+
+void setup()
+{
+    Serial.begin(115200);
+    SPI.begin(36, 37, 35, 38);
+    
+    if (!SD.begin())
+        log_v("\ninitialization failed!\n");
+    log_v("\ninitialization done.\n");
+    audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
+    audio.setVolume(20); // 0...21
+    
+    keyboard.setBaseEP(3);
+    keyboard.begin();
+    keyboard.setCallbacks(new MyHIDCallbacks());
+    
+    CDCUSBSerial.setCallbacks(new MyCDCCallbacks());
+    EspTinyUSB::registerDeviceCallbacks(new Device());
+    
+    // audio.connecttoFS(SD, "/BOO-Under_The_Gun.aac");
+    // audio.connecttoFS(SD, "/MFW-Under_The_Gun.aac");
+    // audio.connecttoFS(SD, "/MMF-Blood_Water.mp3");
+    // audio.connecttoFS(SD, "/MMF-No_Ordinary_Love.mp3");
+    // audio.connecttoFS(SD, "/TBL-Temanku_Si_Raja_Mabuk.mp3");
+    // audio.connecttohost("mp3.ffh.de/radioffh/hqlivestream.aac"); //  128k mp3
+
+    xTaskCreatePinnedToCore(outerLoop, "ts1", (6 * 1024), NULL, 1, NULL, 1);
+}
+
+void loop()
+{
+    vTaskDelay(1);
+}
+
+
+
+
+/*
+    usbh_hub_t *p_hub = &hub_data[driver_obj->dev_addr - 1];
+    tusb_control_request_t request =
+        {
+            .bmRequestType_bit = {
+                    .recipient = TUSB_REQ_RCPT_DEVICE,
+                    .type = TUSB_REQ_TYPE_CLASS,
+                    .direction = TUSB_DIR_IN
+                },
+            .bRequest = HUB_REQUEST_GET_DESCRIPTOR,
+            .wValue = 0,
+            .wIndex = 0,
+            .wLength = sizeof(descriptor_hub_desc_t)
+        };
+    dcd_edpt_xfer(rhport, usbEndpoint->bEndpointAddress, (uint8_t *)&request, sizeof(tusb_control_request_t));
+    read_rx_fifo();
+    tusb_control_request_t request1 =
+        {
+            .bmRequestType_bit = {
+                    .recipient = TUSB_REQ_RCPT_DEVICE,
+                    .type = TUSB_REQ_TYPE_STANDARD,
+                    .direction = TUSB_DIR_IN
+                },
+            .bRequest = HUB_REQUEST_GET_STATUS,
+            .wValue = 0,
+            .wIndex = 0,
+            .wLength = sizeof(descriptor_hub_desc_t)
+        };
+    dcd_edpt_xfer(rhport, usbEndpoint->bEndpointAddress, (uint8_t *)&request1, sizeof(tusb_control_request_t));
+    read_rx_fifo();
+
+    */
+    // ccid_c->mType = 0x62;
+    // ccid_c->pLen = 0x00;
+    // ccid_c->slot = 0x00;
+    // ccid_c->sequence = 0x00;
+    // ccid_c->voltL = 0x01;
+    // ccid_c->res = 0x00;
+    // usb_host_transfer_submit(buffer);
+    // ESP_LOGI(TAG_CLASS, "PICC on");
+
+        /*class_driver_t handle_;
+    size_t xfer_out_size = sizeof(usb_setup_packet_t); // +sizeof(usb_device_desc_t); //(mock_ccid_get_t) + sizeof(mock_ccid_get_t);
+
+    usb_transfer_t *buffer;
+    usb_host_transfer_alloc(xfer_out_size, 0, &buffer);
+    usb_setup_packet_t *ccid_c = (usb_setup_packet_t *)buffer->data_buffer;
+
+    ccid_c->bmRequestType = 0x00;
+    ccid_c->bRequest = 0x09;
+    ccid_c->wValue = 0x01;
+    ccid_c->wIndex = 0x00;
+    ccid_c->wLength = 0x00;
+
+    buffer->device_handle = driver_obj->dev_hdl;
+    buffer->callback = tfCb;
+    buffer->context = (void *)&handle_;
+    buffer->timeout_ms = 700;
+    buffer->bEndpointAddress = 0x00;
+    buffer->num_bytes = xfer_out_size;
+
+    USB_SETUP_PACKET_INIT_SET_CONFIG((usb_setup_packet_t *)buffer->data_buffer, 0);
+    if (usb_host_transfer_submit_control(driver_obj->client_hdl, buffer) != ESP_OK)
+        ESP_LOGI("SETP", "err");
+    */

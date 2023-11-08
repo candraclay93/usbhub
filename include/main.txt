@@ -1,0 +1,24 @@
+#include <Arduino.h>
+#include "SD.h"
+
+#include "usbTask/usbData.h"
+#include "usbTask/usbTask.h"
+#include "wifiTask/wifiTask.h"
+#include "mqttTask/mqttTask.hpp"
+
+extern control_t control;
+
+void setup(){
+    Serial.begin(115200);
+    Serial.print("\n start system");
+    xTaskCreatePinnedToCore(usb, "usbTask", (3 * 1024), NULL, 7, NULL, 1);
+    xTaskCreatePinnedToCore(mqttTask, "mqttTask", (6 * 1024), NULL, 6, NULL, 1);
+}
+void loop(){
+    if(control.lock == 2){
+        control.lock = 3;
+        // xTaskCreatePinnedToCore(wifi, "wifiTask", (3 * 1024), NULL, 5, NULL, 0);
+        
+    }
+    vTaskDelay(1);
+}

@@ -1,0 +1,47 @@
+#include "USBCDCCallback.h"
+#include "usbTask/usbData.h"
+#include "esptinyusb.h"
+
+control_t control;
+
+typedef struct cdcCallback
+{
+    bool dtr, rts;
+    uint8_t bitRate;
+    uint8_t len;
+    String jsonResponse;
+} cdcCallback_t;
+
+cdcCallback_t cdcCallback;
+
+void USBCDCCallback::onCodingChange(cdc_line_coding_t const *p_line_coding)
+{
+    cdcCallback.bitRate = CDCUSBSerial.getBitrate();
+    Serial.printf("cdc change bit rate : %d", cdcCallback.bitRate);
+}
+
+boolean USBCDCCallback::onConnect(bool dtr, bool rts)
+{
+    cdcCallback.dtr = dtr;
+    cdcCallback.rts = rts;
+    return true;
+}
+
+void USBCDCCallback::onData(void* data)
+{
+    cdcCallback.len = CDCUSBSerial.available();
+    uint8_t buf[cdcCallback.len] = {};
+
+    CDCUSBSerial.read(buf, cdcCallback.len);
+    Serial.println(" callback cdc data : ");
+    Serial.write(buf, cdcCallback.len);
+    DeserializationError error = deserializeJson(usbScreenDoc, (char *)buf, cdcCallback.len);
+    if (!error)
+    {
+        String data = usbScreenDoc["data"].as<String>();
+        uint8_t value = usbScreenDoc["status"]["syslogin"].as<uint8_t>();
+        Serial.printf("data : %s\n value : %d\n", data, value);
+        if (value == 0)
+            control.lock = 1;
+    }
+}

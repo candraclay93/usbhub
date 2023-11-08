@@ -1,0 +1,17 @@
+{
+    "dataWifi" : {
+        "ssid" : "aba",
+        "pass" : "123"
+    },
+    "dataMqtt" :{
+        "server" : "test.mosquitto.org",
+        "topicSensor" : "/test/topic/03092023/_sensor",
+        "topicCommand" : "/test/topic/03092023/_command",
+        "topicLog" : "/test/topic/03092023/_log"
+    },
+    "checkServer" : {
+        "server1" : "wwww.google.com",
+        "server2" : "test.mosquitto.org",
+        "server3" : ""
+    }
+}

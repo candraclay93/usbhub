@@ -1,0 +1,36 @@
+#include <WiFi.h>
+#include <data.h>
+#include <Arduino.h>
+#include <AsyncMqttClient.h>
+#include <ArduinoJson.h>
+#include <ESP32Ping.h>
+
+extern "C"
+{
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+}
+
+#include "./wifiTask/wifiTask.h"
+#include "./mqttTask/mqttTask.h"
+#include "./sensorTask/sensorTask.h"
+#include "./usbTask/usbTask.h"
+
+TaskHandle_t taskUsb = NULL;
+TaskHandle_t taskMqtt = NULL;
+TaskHandle_t taskWifi = NULL;
+TaskHandle_t taskSensor = NULL;
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial1.begin(115200);
+  Serial.print(" start");
+
+  xTaskCreatePinnedToCore(usb, "taskUsb", 5000, NULL, 10, &taskUsb, 1);
+  xTaskCreatePinnedToCore(mqtt, "taskMqtt", 5000, NULL, 10, &taskMqtt, 1);
+  xTaskCreatePinnedToCore(sensor, "taskSensor", 5000, NULL, 10, &taskSensor, 1);
+  xTaskCreatePinnedToCore(wifi, "taskWifi", 5000, NULL, 10, &taskWifi, 0);
+}
+
+void loop() {}
